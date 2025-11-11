@@ -235,34 +235,31 @@ jobs:
           python -c "import torch; print('torch version:', torch.__version__)"
           python --version
 
-          
-      - name: Install dependencies and build GLFW for X11 and Wayland
-        run: |
-          curl -LO https://github.com/glfw/glfw/releases/download/${GLFW_VERSION}/glfw-${GLFW_VERSION}.zip
-          unzip glfw-${GLFW_VERSION}.zip
-          curl -LO https://github.com/Kitware/CMake/releases/download/v3.1.3/cmake-3.1.3-Linux-x86_64.tar.gz
-          tar xzf cmake-3.1.3-Linux-x86_64.tar.gz
-          mv cmake-3.1.3-Linux-x86_64 cmake
-          yum install -y libXinerama-devel libXrandr-devel libXcursor-devel libXi-devel extra-cmake-modules libwayland-client-devel libxkbcommon-devel
-          curl -LO https://wayland.freedesktop.org/releases/wayland-protocols-1.17.tar.xz
-          tar xf wayland-protocols-1.17.tar.xz
-          cd wayland-protocols-1.17
-          ./configure
-          make install
-          cd ..
-          mkdir build_x11
-          cd build_x11
-          ../cmake/bin/cmake ../glfw-${GLFW_VERSION} -DBUILD_SHARED_LIBS=ON -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF
-          make
-          cp src/libglfw.so ../glfw-${GLFW_VERSION}/libglfw.so
+        - name: Enable EPEL and install system GLFW + X11/GL dev packages
+          run: |
+          # Enable EPEL for Alma/RHEL8 in manylinux_2_28 container
+          yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm || true
+          yum clean all
+          yum makecache -y
+          # Core headers for GLFW + X11 + GL on EL8
+          yum install -y \
+            glfw-devel \
+            libX11-devel libXext-devel libXi-devel libXrandr-devel \
+            libXinerama-devel libXcursor-devel libXxf86vm-devel \
+            libxkbcommon-devel mesa-libGL-devel mesa-libGLU-devel \
+            pkgconfig cmake make gcc gcc-c++
+
+        - name: Skip building GLFW on Linux (use system glfw-devel)
+         run: |
+          echo "Using system-provided GLFW; skipping source build."
+
+
           
       - name: Package
         run: |
           source $HOME/miniconda/etc/profile.d/conda.sh
           conda activate myenv
           python --version
-          export INCLUDE_PATH=glfw-${GLFW_VERSION}/include
-          export LIB_PATH=glfw-${GLFW_VERSION}
           python setup.py bdist_wheel --plat-name manylinux2014_x86_64
 
       - name: Package latest
@@ -271,8 +268,6 @@ jobs:
           source $HOME/miniconda/etc/profile.d/conda.sh
           conda activate myenv
           python --version
-          export INCLUDE_PATH=glfw-${GLFW_VERSION}/include
-          export LIB_PATH=glfw-${GLFW_VERSION}
           export BASE_VERSION=${{ matrix.torch-version }}
           python setup.py bdist_wheel --plat-name manylinux2014_x86_64
           rm -rf glfw-${GLFW_VERSION} build
