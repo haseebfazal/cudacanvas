@@ -2,6 +2,8 @@ name: Wheels
 
 on:
   workflow_dispatch:
+    push:
+    branches: [ torch28-cu126 ]
 
 env:
   GLFW_VERSION: "3.3.9"
